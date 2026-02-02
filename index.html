@@ -12,6 +12,7 @@
     <title>养基宝 - 基金实时估值查询</title>
     <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.bootcdn.net/ajax/libs/tesseract.js/5.0.2/tesseract.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/axios/1.6.7/axios.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -40,7 +41,7 @@
             gap: 10px;
             flex-wrap: wrap;
         }
-        #fundCode {
+        #fundSearch {
             flex: 1;
             min-width: 200px;
             padding: 14px 15px;
@@ -49,7 +50,7 @@
             font-size: 16px;
             outline: none;
         }
-        #fundCode:focus {
+        #fundSearch:focus {
             border-color: #007AFF;
         }
         .search-btn {
@@ -132,6 +133,11 @@
         .import-fund-code {
             font-size: 13px;
             color: #86868b;
+        }
+        .import-fund-extra {
+            font-size: 12px;
+            color: #86868b;
+            margin-top: 4px;
         }
         .import-select-btn {
             width: 60px;
@@ -357,24 +363,109 @@
         input[type="file"] {
             display: none;
         }
+        .hold-time-input {
+            margin-top: 10px;
+            padding: 8px;
+            width: 100%;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .market-container {
+            background-color: white;
+            margin: 0 15px 15px;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .market-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .market-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f2f2f7;
+        }
+        .market-item:last-child {
+            border-bottom: none;
+        }
+        .market-name {
+            font-size: 15px;
+        }
+        .market-value {
+            font-size: 15px;
+        }
+        .search-result-list {
+            position: absolute;
+            top: 110px;
+            left: 15px;
+            right: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 90;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+        .search-result-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f2f2f7;
+            cursor: pointer;
+        }
+        .search-result-item:active {
+            background-color: #f2f2f7;
+        }
+        .search-result-name {
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .search-result-code {
+            font-size: 13px;
+            color: #86868b;
+        }
     </style>
 </head>
 <body>
     <div class="nav-bar">养基宝</div>
-    <div class="search-container">
-        <input type="text" id="fundCode" placeholder="输入6位基金代码（如000001）" maxlength="6">
-        <button class="search-btn" onclick="queryFundData()">查询</button>
+    <div class="search-container" style="position: relative;">
+        <input type="text" id="fundSearch" placeholder="输入基金名称/代码（如000001）" maxlength="20">
+        <button class="search-btn" onclick="queryFundBySearch()">查询</button>
         <button class="ocr-import-btn" onclick="openImagePicker()">
-            <i class="fas fa-camera"></i> 支付宝持仓截图导入
+            <<i class="fas fa-camera"></</i> 支付宝持仓截图导入
         </button>
+        <div class="search-result-list" id="searchResultList"></div>
     </div>
     <div class="share-tip">
-        点击右上角「分享」可发送给朋友，添加到桌面更便捷 <i class="fas fa-share-alt"></i>
+        点击右上角「分享」可发送给朋友，添加到桌面更便捷 <<i class="fas fa-share-alt"></</i>
     </div>
-    <div class="collection-title" id="collectionTitle" style="display:none;">我的收藏</div>
+
+    <!-- 行情模块 -->
+    <div class="market-container" id="marketContainer" style="display:none;">
+        <div class="market-title">大盘行情</div>
+        <div class="market-item">
+            <div class="market-name">上证指数</div>
+            <div class="market-value" id="shIndex">-</div>
+        </div>
+        <div class="market-item">
+            <div class="market-name">深证成指</div>
+            <div class="market-value" id="szIndex">-</div>
+        </div>
+        <div class="market-item">
+            <div class="market-name">创业板指</div>
+            <div class="market-value" id="cybIndex">-</div>
+        </div>
+    </div>
+
+    <!-- 收藏列表（自选） -->
+    <div class="collection-title" id="collectionTitle" style="display:none;">我的自选</div>
     <div class="collection-list" id="collectionList"></div>
+
     <div class="refresh-tip" id="refreshTip" style="display:none;">
-        实时估值每30秒自动刷新 <i class="fas fa-sync-alt"></i>
+        实时估值每30秒自动刷新 <<i class="fas fa-sync-alt"></</i>
     </div>
     <div id="fundCard" style="display:none;" class="fund-card">
         <div class="fund-header">
@@ -383,7 +474,7 @@
                 <div class="fund-code" id="fundCodeDisplay"></div>
             </div>
             <button class="collect-btn" id="collectBtn" onclick="toggleCollect()">
-                <i class="fas fa-heart"></i> 收藏
+                <<i class="fas fa-heart"></</i> 加入自选
             </button>
         </div>
         <div class="valuation-container">
@@ -395,6 +486,12 @@
                 <div class="gszzl-container">
                     <div class="gszzl-value" id="gszzlValue"></div>
                 </div>
+            </div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">持有时间</div>
+            <div class="info-value">
+                <input type="text" class="hold-time-input" id="holdTimeInput" placeholder="如：2026-02-02" value="">
             </div>
         </div>
         <div class="info-row">
@@ -414,9 +511,9 @@
     <table class="nav-table" id="navTable" style="display:none;">
         <thead>
             <tr>
-                <th>日期</th>
-                <th>单位净值</th>
-                <th>累计净值</th>
+                <<th>日期</</th>
+                <<th>单位净值</</th>
+                <<th>累计净值</</th>
             </tr>
         </thead>
         <tbody id="navTableBody"></tbody>
@@ -424,17 +521,17 @@
     <div class="error-tip" id="errorTip" style="display:none;"></div>
     <div class="loading-tip" id="loadingTip" style="display:none;">处理中，请稍候...</div>
     <div class="bottom-bar">
-        <div class="tab-btn active" onclick="switchTab('query')">
-            <i class="fas fa-search tab-icon"></i>
+        <div class="tab-btn" onclick="switchTab('query')">
+            <<i class="fas fa-search tab-icon"></</i>
             <span>查询</span>
         </div>
         <div class="tab-btn" onclick="switchTab('collection')">
-            <i class="fas fa-heart tab-icon"></i>
-            <span>收藏</span>
+            <<i class="fas fa-star tab-icon"></</i>
+            <span>自选</span>
         </div>
-        <div class="tab-btn" onclick="switchTab('nav')">
-            <i class="fas fa-table tab-icon"></i>
-            <span>净值</span>
+        <div class="tab-btn active" onclick="switchTab('market')">
+            <<i class="fas fa-chart-line tab-icon"></</i>
+            <span>行情</span>
         </div>
     </div>
     <div class="modal" id="importModal">
@@ -443,13 +540,15 @@
             <div class="import-fund-list" id="importFundList"></div>
             <div class="modal-btns">
                 <button class="modal-btn cancel-btn" onclick="closeModal()">取消</button>
-                <button class="modal-btn confirm-btn" onclick="confirmImport()">全部添加收藏</button>
+                <button class="modal-btn confirm-btn" onclick="confirmImport()">全部加入自选</button>
             </div>
         </div>
     </div>
     <input type="file" id="imageInput" accept="image/*" capture="camera" onchange="handleImageUpload(event)">
+
     <script>
         let currentFundCode = "";
+        let currentFundName = "";
         let refreshTimer = null;
         let selectedImportFunds = [];
         const ocrEngine = Tesseract.createWorker({ logger: m => console.log(m) });
@@ -457,26 +556,43 @@
             await ocrEngine.load();
             await ocrEngine.loadLanguage('chi_sim');
             await ocrEngine.initialize('chi_sim');
+            loadMarketData(); // 加载行情数据
         })();
 
         window.onload = function() {
             loadCollectionList();
-            switchTab('query');
+            switchTab('market');
+            // 搜索框实时联想
+            document.getElementById("fundSearch").addEventListener("input", debounce(searchFundSuggest, 500));
         };
 
+        // 防抖函数
+        function debounce(func, delay) {
+            let timer;
+            return function() {
+                clearTimeout(timer);
+                timer = setTimeout(() => func.apply(this, arguments), delay);
+            };
+        }
+
+        // 切换底部标签
         function switchTab(tab) {
             const tabs = document.querySelectorAll(".tab-btn");
             tabs.forEach(btn => btn.classList.remove("active"));
             document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add("active");
+
+            document.getElementById("marketContainer").style.display = "none";
+            document.getElementById("collectionTitle").style.display = "none";
+            hideResultViews();
+
             if (tab === "collection") {
                 document.getElementById("collectionTitle").style.display = "block";
-                hideResultViews();
-            } else if (tab === "nav") {
-                document.getElementById("collectionTitle").style.display = "none";
-                currentFundCode ? (document.getElementById("navTitle").style.display = "block", document.getElementById("navTable").style.display = "table") : hideResultViews();
+                loadCollectionList();
+            } else if (tab === "market") {
+                document.getElementById("marketContainer").style.display = "block";
+                loadMarketData();
             } else {
-                document.getElementById("collectionTitle").style.display = "none";
-                currentFundCode ? showResultViews() : hideResultViews();
+                if (currentFundCode) showResultViews();
             }
         }
 
@@ -496,12 +612,76 @@
             document.getElementById("errorTip").style.display = "none";
         }
 
-        async function queryFundData() {
-            const fundCode = document.getElementById("fundCode").value.trim();
-            if (!fundCode || fundCode.length !== 6 || isNaN(fundCode)) {
-                alert("请输入正确的6位数字基金代码！");
+        // 搜索基金联想
+        async function searchFundSuggest() {
+            const keyword = document.getElementById("fundSearch").value.trim();
+            if (keyword.length < 2) {
+                document.getElementById("searchResultList").style.display = "none";
                 return;
             }
+            try {
+                // 调用基金名称搜索接口
+                const res = await axios.get(`https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx`, {
+                    params: {
+                        m: 1,
+                        key: keyword,
+                        pageindex: 1,
+                        pagesize: 10
+                    }
+                });
+                const data = res.data.Datas || [];
+                if (data.length === 0) {
+                    document.getElementById("searchResultList").style.display = "none";
+                    return;
+                }
+                // 渲染联想结果
+                let html = "";
+                data.forEach(item => {
+                    html += `
+                        <div class="search-result-item" onclick="selectSuggestFund('${item.CODE}', '${item.NAME}')">
+                            <div class="search-result-name">${item.NAME}</div>
+                            <div class="search-result-code">${item.CODE}</div>
+                        </div>
+                    `;
+                });
+                document.getElementById("searchResultList").innerHTML = html;
+                document.getElementById("searchResultList").style.display = "block";
+            } catch (e) {
+                console.log("搜索联想失败：", e);
+            }
+        }
+
+        // 选择联想基金
+        function selectSuggestFund(code, name) {
+            document.getElementById("fundSearch").value = name;
+            document.getElementById("searchResultList").style.display = "none";
+            currentFundCode = code;
+            currentFundName = name;
+            queryFundData(code);
+        }
+
+        // 按搜索框查询基金
+        function queryFundBySearch() {
+            const keyword = document.getElementById("fundSearch").value.trim();
+            if (!keyword) {
+                alert("请输入基金名称或代码！");
+                return;
+            }
+            // 如果是6位数字，直接查代码
+            if (/^\d{6}$/.test(keyword)) {
+                queryFundData(keyword);
+                return;
+            }
+            // 否则查名称（取第一个联想结果）
+            searchFundSuggest().then(() => {
+                const firstItem = document.querySelector(".search-result-item");
+                if (firstItem) firstItem.click();
+                else alert("未找到该基金！");
+            });
+        }
+
+        // 查询基金数据
+        async function queryFundData(fundCode) {
             currentFundCode = fundCode;
             hideResultViews();
             document.getElementById("loadingTip").style.display = "block";
@@ -513,6 +693,8 @@
                 const valuationText = await valuationRes.text();
                 const valuationData = JSON.parse(valuationText.lstrip("jsonpgz(").rstrip(");"));
                 const navData = await navRes.json();
+
+                currentFundName = valuationData.name;
                 renderValuation(valuationData);
                 renderNav(navData);
                 showResultViews();
@@ -527,13 +709,24 @@
             }
         }
 
+        // 渲染估值
         function renderValuation(data) {
-            document.getElementById("fundName").textContent = data.name || "未知基金";
+            document.getElementById("fundName").textContent = data.name || currentFundName;
             document.getElementById("fundCodeDisplay").textContent = currentFundCode;
             document.getElementById("gszValue").textContent = data.gsz || "0.0000";
             document.getElementById("dwjzValue").textContent = data.dwjz || "0.0000";
             document.getElementById("zzzValue").textContent = data.zzz || "0.00";
             document.getElementById("updateTime").textContent = data.gztime || "暂无更新";
+
+            // 持有时间回显
+            const collection = JSON.parse(localStorage.getItem("fundCollection")) || [];
+            const fund = collection.find(item => item.code === currentFundCode);
+            if (fund && fund.holdTime) {
+                document.getElementById("holdTimeInput").value = fund.holdTime;
+            } else {
+                document.getElementById("holdTimeInput").value = "";
+            }
+
             const gszzl = parseFloat(data.gszzl || 0);
             const gszzlElem = document.getElementById("gszzlValue");
             gszzlElem.textContent = `${gszzl.toFixed(2)}%`;
@@ -541,6 +734,7 @@
             gszzlElem.classList.add(gszzl > 0 ? "rise" : gszzl < 0 ? "fall" : "flat");
         }
 
+        // 渲染净值
         function renderNav(data) {
             const tbody = document.getElementById("navTableBody");
             if (!data.Data || !data.Data.LSJZList || data.Data.LSJZList.length === 0) {
@@ -555,43 +749,63 @@
             tbody.innerHTML = html;
         }
 
-        function startRefreshTimer() {
-            if (refreshTimer) clearInterval(refreshTimer);
-            refreshTimer = setInterval(async () => {
-                if (!currentFundCode) return;
-                try {
-                    const res = await fetch(`http://fundgz.1234567.com.cn/js/${currentFundCode}.js`);
-                    const text = await res.text();
-                    const data = JSON.parse(text.lstrip("jsonpgz(").rstrip(");"));
-                    renderValuation(data);
-                } catch (e) { console.log("自动刷新失败：", e); }
-            }, 30000);
+        // 加载大盘行情
+        async function loadMarketData() {
+            try {
+                const res = await axios.get(`https://push2.eastmoney.com/api/qt/market/getindex?fields=f43,f44,f45,f46&secids=1.000001,0.399001,0.399006`);
+                const data = res.data.data;
+                if (data) {
+                    // 上证指数
+                    const sh = data[0].celldata;
+                    document.getElementById("shIndex").textContent = `${sh[0]} (${sh[2] > 0 ? '+' : ''}${sh[2]} ${sh[3]}%)`;
+                    document.getElementById("shIndex").className = `market-value ${sh[2] > 0 ? 'rise' : sh[2] < 0 ? 'fall' : 'flat'}`;
+                    // 深证成指
+                    const sz = data[1].celldata;
+                    document.getElementById("szIndex").textContent = `${sz[0]} (${sz[2] > 0 ? '+' : ''}${sz[2]} ${sz[3]}%)`;
+                    document.getElementById("szIndex").className = `market-value ${sz[2] > 0 ? 'rise' : sz[2] < 0 ? 'fall' : 'flat'}`;
+                    // 创业板指
+                    const cyb = data[2].celldata;
+                    document.getElementById("cybIndex").textContent = `${cyb[0]} (${cyb[2] > 0 ? '+' : ''}${cyb[2]} ${cyb[3]}%)`;
+                    document.getElementById("cybIndex").className = `market-value ${cyb[2] > 0 ? 'rise' : cyb[2] < 0 ? 'fall' : 'flat'}`;
+                }
+            } catch (e) {
+                console.log("行情加载失败：", e);
+            }
         }
 
+        // 自选管理
         function toggleCollect() {
             const btn = document.getElementById("collectBtn");
-            const fundName = document.getElementById("fundName").textContent;
-            const fund = { code: currentFundCode, name: fundName };
+            const holdTime = document.getElementById("holdTimeInput").value.trim();
+            const fund = { 
+                code: currentFundCode, 
+                name: currentFundName,
+                holdTime: holdTime
+            };
+
             if (btn.classList.contains("active")) {
                 removeFromCollection(currentFundCode);
                 btn.classList.remove("active");
-                btn.innerHTML = `<i class="fas fa-heart"></i> 收藏`;
-                alert("已取消收藏");
+                btn.innerHTML = `<<i class="fas fa-heart"></</i> 加入自选`;
+                alert("已从自选移除");
             } else {
                 addToCollection(fund);
                 btn.classList.add("active");
-                btn.innerHTML = `<i class="fas fa-heart"></i> 已收藏`;
-                alert("收藏成功");
+                btn.innerHTML = `<<i class="fas fa-heart"></</i> 已在自选`;
+                alert("已加入自选");
             }
             loadCollectionList();
         }
 
         function addToCollection(fund) {
             const collection = JSON.parse(localStorage.getItem("fundCollection")) || [];
-            if (!collection.some(item => item.code === fund.code)) {
+            const index = collection.findIndex(item => item.code === fund.code);
+            if (index > -1) {
+                collection[index] = fund;
+            } else {
                 collection.push(fund);
-                localStorage.setItem("fundCollection", JSON.stringify(collection));
             }
+            localStorage.setItem("fundCollection", JSON.stringify(collection));
         }
 
         function removeFromCollection(code) {
@@ -604,44 +818,57 @@
             const collection = JSON.parse(localStorage.getItem("fundCollection")) || [];
             const isCollected = collection.some(item => item.code === code);
             const btn = document.getElementById("collectBtn");
-            isCollected ? (btn.classList.add("active"), btn.innerHTML = `<i class="fas fa-heart"></i> 已收藏`) : (btn.classList.remove("active"), btn.innerHTML = `<i class="fas fa-heart"></i> 收藏`);
+            if (isCollected) {
+                btn.classList.add("active");
+                btn.innerHTML = `<<i class="fas fa-heart"></</i> 已在自选`;
+            } else {
+                btn.classList.remove("active");
+                btn.innerHTML = `<<i class="fas fa-heart"></</i> 加入自选`;
+            }
         }
 
         function loadCollectionList() {
             const collection = JSON.parse(localStorage.getItem("fundCollection")) || [];
             const listElem = document.getElementById("collectionList");
+
             if (collection.length === 0) {
-                listElem.innerHTML = "<div style='width:100%; text-align:center; padding:20px; color:#86868b;'>暂无收藏基金</div>";
+                listElem.innerHTML = "<div style='width:100%; text-align:center; padding:20px; color:#86868b;'>暂无自选基金</div>";
                 return;
             }
+
             let html = "";
             collection.forEach(fund => {
-                html += `<div class="collection-item" onclick="selectCollectedFund('${fund.code}')"><span>${fund.name}</span><span style="color:#86868b;">(${fund.code})</span><span class="delete-collect" onclick="event.stopPropagation(); deleteCollect('${fund.code}')"><i class="fas fa-times"></i></span></div>`;
+                html += `
+                    <div class="collection-item" onclick="selectCollectedFund('${fund.code}')">
+                        <span>${fund.name}</span>
+                        <span style="color:#86868b;">(${fund.code})</span>
+                        ${fund.holdTime ? `<span class="import-fund-extra">${fund.holdTime}</span>` : ''}
+                        <span class="delete-collect" onclick="event.stopPropagation(); deleteCollect('${fund.code}')">
+                            <<i class="fas fa-times"></</i>
+                        </span>
+                    </div>
+                `;
             });
             listElem.innerHTML = html;
         }
 
         function selectCollectedFund(code) {
-            document.getElementById("fundCode").value = code;
-            queryFundData();
+            queryFundData(code);
             switchTab("query");
         }
 
         function deleteCollect(code) {
-            if (confirm("确定要取消收藏该基金吗？")) {
+            if (confirm("确定要移除该自选基金吗？")) {
                 removeFromCollection(code);
                 loadCollectionList();
                 if (currentFundCode === code) {
                     document.getElementById("collectBtn").classList.remove("active");
-                    document.getElementById("collectBtn").innerHTML = `<i class="fas fa-heart"></i> 收藏`;
+                    document.getElementById("collectBtn").innerHTML = `<<i class="fas fa-heart"></</i> 加入自选`;
                 }
             }
         }
 
-        function openImagePicker() {
-            document.getElementById("imageInput").click();
-        }
-
+        // 截图导入（适配你的持仓格式）
         async function handleImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -650,21 +877,26 @@
             try {
                 const result = await ocrEngine.recognize(file, 'chi_sim');
                 const text = result.data.text;
-                const fundPattern = r"([^\d\n]+?)\s*代码：?\s*(\d{6})|([^\d\n]+?)\s*(\d{6})";
+                // 适配你的持仓截图格式：基金名称 + 涨幅 + 收益
+                const fundPattern = r"([^\n]+?)\s+([+-]?\d+\.\d+%)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+%)";
                 const matches = text.matchAll(new RegExp(fundPattern, 'gms'));
                 const fundMap = new Map();
                 for (const match of matches) {
-                    let fundName = "", fundCode = "";
-                    if (match[2]) {
-                        fundName = match[1].replace(/\n/g, "").trim();
-                        fundCode = match[2].trim();
-                    } else {
-                        fundName = match[3].replace(/\n/g, "").trim();
-                        fundCode = match[4].trim();
+                    const fundName = match[1].trim();
+                    // 根据名称查代码（调用搜索接口）
+                    const res = await axios.get(`https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx`, {
+                        params: { m:1, key: fundName, pageindex:1, pagesize:1 }
+                    });
+                    const fundData = res.data.Datas[0];
+                    if (fundData) {
+                        fundMap.set(fundData.CODE, {
+                            name: fundData.NAME,
+                            code: fundData.CODE,
+                            profit: match[3]
+                        });
                     }
-                    if (fundName && fundCode && fundCode.length === 6) fundMap.set(fundCode, fundName);
                 }
-                selectedImportFunds = Array.from(fundMap).map(([code, name]) => ({ code, name }));
+                selectedImportFunds = Array.from(fundMap.values());
                 if (selectedImportFunds.length === 0) {
                     alert("未识别到基金信息，请确保是支付宝基金持仓清晰截图！");
                     return;
@@ -672,7 +904,18 @@
                 const listElem = document.getElementById("importFundList");
                 let html = "";
                 selectedImportFunds.forEach((fund, index) => {
-                    html += `<div class="import-fund-item"><div class="import-fund-info"><div class="import-fund-name">${fund.name}</div><div class="import-fund-code">${fund.code}</div></div><button class="import-select-btn" onclick="toggleImportSelect(${index})">选择</button></div>`;
+                    html += `
+                        <div class="import-fund-item">
+                            <div class="import-fund-info">
+                                <div class="import-fund-name">${fund.name}</div>
+                                <div class="import-fund-code">${fund.code}</div>
+                                <div class="import-fund-extra">收益：${fund.profit}</div>
+                            </div>
+                            <button class="import-select-btn" onclick="toggleImportSelect(${index})">
+                                选择
+                            </button>
+                        </div>
+                    `;
                 });
                 listElem.innerHTML = html;
                 document.getElementById("importModal").style.display = "flex";
@@ -706,8 +949,12 @@
                 alert("请选择要导入的基金！");
                 return;
             }
-            toImport.forEach(fund => addToCollection(fund));
-            alert(`成功导入${toImport.length}只基金到收藏！`);
+            toImport.forEach(fund => addToCollection({
+                code: fund.code,
+                name: fund.name,
+                holdTime: ""
+            }));
+            alert(`成功导入${toImport.length}只基金到自选！`);
             closeModal();
             loadCollectionList();
         }
@@ -717,6 +964,7 @@
             selectedImportFunds = [];
         }
 
+        // 其他工具函数
         String.prototype.lstrip = function(prefix) {
             return this.startsWith(prefix) ? this.slice(prefix.length) : this;
         };
