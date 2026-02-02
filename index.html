@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#007AFF">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="养基宝">
+    <link rel="icon" href="icon.png" type="image/png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <title>养基宝 - 基金实时估值查询</title>
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.bootcdn.net/ajax/libs/tesseract.js/5.0.2/tesseract.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif; 
+            background-color: #f5f5f7; 
+            color: #1d1d1f; 
+            padding-bottom: 80px;
+        }
+        .nav-bar {
+            background-color: #ffffff;
+            height: 50px;
+            line-height: 50px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+        .search-container {
+            margin: 60px 15px 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        #fundCode {
+            flex: 1;
+            min-width: 200px;
+            padding: 14px 15px;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+        }
+        #fundCode:focus {
+            border-color: #007AFF;
+        }
+        .search-btn {
+            width: 80px;
+            background-color: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .search-btn:active {
+            background-color: #0066CC;
+        }
+        .ocr-import-btn {
+            width: 100%;
+            margin-top: 10px;
+            padding: 14px;
+            background-color: #FF9500;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .ocr-import-btn:active {
+            background-color: #E68900;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
+        }
+        .modal-content {
+            background-color: white;
+            width: 90%;
+            max-width: 400px;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .import-fund-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        .import-fund-item {
+            padding: 12px;
+            border-bottom: 1px solid #f2f2f7;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .import-fund-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .import-fund-name {
+            font-size: 15px;
+            font-weight: 500;
+        }
+        .import-fund-code {
+            font-size: 13px;
+            color: #86868b;
+        }
+        .import-select-btn {
+            width: 60px;
+            padding: 5px;
+            background-color: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .modal-btns {
+            display: flex;
+            gap: 10px;
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .cancel-btn {
+            background-color: #f2f2f7;
+            color: #1d1d1f;
+        }
+        .confirm-btn {
+            background-color: #007AFF;
+            color: white;
+        }
+        .fund-card {
+            background-color: white;
+            margin: 0 15px 15px;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .fund-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .fund-name {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .fund-code {
+            color: #86868b;
+            font-size: 14px;
+        }
+        .collect-btn {
+            background-color: #f2f2f7;
+            border: none;
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 14px;
+            color: #1d1d1f;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .collect-btn.active {
+            background-color: #FF3B30;
+            color: white;
+        }
+        .valuation-container {
+            display: flex;
+            align-items: flex-end;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .gsz-label {
+            font-size: 16px;
+            color: #86868b;
+            margin-bottom: 5px;
+        }
+        .gsz-value {
+            font-size: 32px;
+            font-weight: 600;
+        }
+        .gszzl-container {
+            margin-bottom: 5px;
+        }
+        .gszzl-value {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .rise { color: #FF3B30; }
+        .fall { color: #00C853; }
+        .flat { color: #1d1d1f; }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-top: 1px solid #f2f2f7;
+            font-size: 15px;
+        }
+        .info-label {
+            color: #86868b;
+        }
+        .info-value {
+            color: #1d1d1f;
+        }
+        .nav-title {
+            margin: 25px 15px 15px;
+            font-size: 17px;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        .nav-table {
+            width: calc(100% - 30px);
+            margin: 0 15px;
+            border-collapse: collapse;
+            background-color: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .nav-table th {
+            background-color: #f9f9fb;
+            color: #86868b;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 12px;
+            text-align: center;
+            border-bottom: 1px solid #f2f2f7;
+        }
+        .nav-table td {
+            padding: 14px 12px;
+            text-align: center;
+            font-size: 15px;
+            border-bottom: 1px solid #f2f2f7;
+        }
+        .nav-table tr:last-child td {
+            border-bottom: none;
+        }
+        .collection-title {
+            margin: 30px 15px 15px;
+            font-size: 17px;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        .collection-list {
+            margin: 0 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .collection-item {
+            background-color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            cursor: pointer;
+        }
+        .collection-item:active {
+            background-color: #f2f2f7;
+        }
+        .delete-collect {
+            color: #FF3B30;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+        .error-tip {
+            text-align: center;
+            margin: 30px 15px;
+            color: #FF3B30;
+            font-size: 16px;
+        }
+        .refresh-tip {
+            text-align: center;
+            color: #86868b;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: white;
+            height: 60px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -1px 3px rgba(0,0,0,0.1);
+        }
+        .tab-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #86868b;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .tab-btn.active {
+            color: #007AFF;
+        }
+        .tab-icon {
+            font-size: 24px;
+            margin-bottom: 3px;
+        }
+        .share-tip {
+            text-align: center;
+            color: #86868b;
+            font-size: 14px;
+            margin: 15px 0;
+            padding: 0 15px;
+        }
+        .loading-tip {
+            text-align: center;
+            color: #007AFF;
+            font-size: 15px;
+            margin: 20px 0;
+        }
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-bar">养基宝</div>
+    <div class="search-container">
+        <input type="text" id="fundCode" placeholder="输入6位基金代码（如000001）" maxlength="6">
+        <button class="search-btn" onclick="queryFundData()">查询</button>
+        <button class="ocr-import-btn" onclick="openImagePicker()">
+            <i class="fas fa-camera"></i> 支付宝持仓截图导入
+        </button>
+    </div>
+    <div class="share-tip">
+        点击右上角「分享」可发送给朋友，添加到桌面更便捷 <i class="fas fa-share-alt"></i>
+    </div>
+    <div class="collection-title" id="collectionTitle" style="display:none;">我的收藏</div>
+    <div class="collection-list" id="collectionList"></div>
+    <div class="refresh-tip" id="refreshTip" style="display:none;">
+        实时估值每30秒自动刷新 <i class="fas fa-sync-alt"></i>
+    </div>
+    <div id="fundCard" style="display:none;" class="fund-card">
+        <div class="fund-header">
+            <div>
+                <div class="fund-name" id="fundName"></div>
+                <div class="fund-code" id="fundCodeDisplay"></div>
+            </div>
+            <button class="collect-btn" id="collectBtn" onclick="toggleCollect()">
+                <i class="fas fa-heart"></i> 收藏
+            </button>
+        </div>
+        <div class="valuation-container">
+            <div>
+                <div class="gsz-label">实时估值</div>
+                <div class="gsz-value" id="gszValue"></div>
+            </div>
+            <div>
+                <div class="gszzl-container">
+                    <div class="gszzl-value" id="gszzlValue"></div>
+                </div>
+            </div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">昨日单位净值</div>
+            <div class="info-value" id="dwjzValue"></div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">估值净值差</div>
+            <div class="info-value" id="zzzValue"></div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">更新时间</div>
+            <div class="info-value" id="updateTime"></div>
+        </div>
+    </div>
+    <div class="nav-title" id="navTitle" style="display:none;">历史单位净值</div>
+    <table class="nav-table" id="navTable" style="display:none;">
+        <thead>
+            <tr>
+                <th>日期</th>
+                <th>单位净值</th>
+                <th>累计净值</th>
+            </tr>
+        </thead>
+        <tbody id="navTableBody"></tbody>
+    </table>
+    <div class="error-tip" id="errorTip" style="display:none;"></div>
+    <div class="loading-tip" id="loadingTip" style="display:none;">处理中，请稍候...</div>
+    <div class="bottom-bar">
+        <div class="tab-btn active" onclick="switchTab('query')">
+            <i class="fas fa-search tab-icon"></i>
+            <span>查询</span>
+        </div>
+        <div class="tab-btn" onclick="switchTab('collection')">
+            <i class="fas fa-heart tab-icon"></i>
+            <span>收藏</span>
+        </div>
+        <div class="tab-btn" onclick="switchTab('nav')">
+            <i class="fas fa-table tab-icon"></i>
+            <span>净值</span>
+        </div>
+    </div>
+    <div class="modal" id="importModal">
+        <div class="modal-content">
+            <div class="modal-title">识别到的基金</div>
+            <div class="import-fund-list" id="importFundList"></div>
+            <div class="modal-btns">
+                <button class="modal-btn cancel-btn" onclick="closeModal()">取消</button>
+                <button class="modal-btn confirm-btn" onclick="confirmImport()">全部添加收藏</button>
+            </div>
+        </div>
+    </div>
+    <input type="file" id="imageInput" accept="image/*" capture="camera" onchange="handleImageUpload(event)">
+    <script>
+        let currentFundCode = "";
+        let refreshTimer = null;
+        let selectedImportFunds = [];
+        const ocrEngine = Tesseract.createWorker({ logger: m => console.log(m) });
+        (async () => {
+            await ocrEngine.load();
+            await ocrEngine.loadLanguage('chi_sim');
+            await ocrEngine.initialize('chi_sim');
+        })();
+
+        window.onload = function() {
+            loadCollectionList();
+            switchTab('query');
+        };
+
+        function switchTab(tab) {
+            const tabs = document.querySelectorAll(".tab-btn");
+            tabs.forEach(btn => btn.classList.remove("active"));
+            document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add("active");
+            if (tab === "collection") {
+                document.getElementById("collectionTitle").style.display = "block";
+                hideResultViews();
+            } else if (tab === "nav") {
+                document.getElementById("collectionTitle").style.display = "none";
+                currentFundCode ? (document.getElementById("navTitle").style.display = "block", document.getElementById("navTable").style.display = "table") : hideResultViews();
+            } else {
+                document.getElementById("collectionTitle").style.display = "none";
+                currentFundCode ? showResultViews() : hideResultViews();
+            }
+        }
+
+        function showResultViews() {
+            document.getElementById("fundCard").style.display = "block";
+            document.getElementById("refreshTip").style.display = "block";
+            document.getElementById("navTitle").style.display = "block";
+            document.getElementById("navTable").style.display = "table";
+            document.getElementById("errorTip").style.display = "none";
+        }
+
+        function hideResultViews() {
+            document.getElementById("fundCard").style.display = "none";
+            document.getElementById("refreshTip").style.display = "none";
+            document.getElementById("navTitle").style.display = "none";
+            document.getElementById("navTable").style.display = "none";
+            document.getElementById("errorTip").style.display = "none";
+        }
+
+        async function queryFundData() {
+            const fundCode = document.getElementById("fundCode").value.trim();
+            if (!fundCode || fundCode.length !== 6 || isNaN(fundCode)) {
+                alert("请输入正确的6位数字基金代码！");
+                return;
+            }
+            currentFundCode = fundCode;
+            hideResultViews();
+            document.getElementById("loadingTip").style.display = "block";
+            try {
+                const [valuationRes, navRes] = await Promise.all([
+                    fetch(`http://fundgz.1234567.com.cn/js/${fundCode}.js`),
+                    fetch(`http://api.fund.eastmoney.com/f10/lsjz?fundCode=${fundCode}&pageIndex=1&pageSize=10&_=${Date.now()}`)
+                ]);
+                const valuationText = await valuationRes.text();
+                const valuationData = JSON.parse(valuationText.lstrip("jsonpgz(").rstrip(");"));
+                const navData = await navRes.json();
+                renderValuation(valuationData);
+                renderNav(navData);
+                showResultViews();
+                checkIsCollected(fundCode);
+                startRefreshTimer();
+            } catch (e) {
+                hideResultViews();
+                document.getElementById("errorTip").style.display = "block";
+                document.getElementById("errorTip").textContent = "查询失败：接口异常或网络问题";
+            } finally {
+                document.getElementById("loadingTip").style.display = "none";
+            }
+        }
+
+        function renderValuation(data) {
+            document.getElementById("fundName").textContent = data.name || "未知基金";
+            document.getElementById("fundCodeDisplay").textContent = currentFundCode;
+            document.getElementById("gszValue").textContent = data.gsz || "0.0000";
+            document.getElementById("dwjzValue").textContent = data.dwjz || "0.0000";
+            document.getElementById("zzzValue").textContent = data.zzz || "0.00";
+            document.getElementById("updateTime").textContent = data.gztime || "暂无更新";
+            const gszzl = parseFloat(data.gszzl || 0);
+            const gszzlElem = document.getElementById("gszzlValue");
+            gszzlElem.textContent = `${gszzl.toFixed(2)}%`;
+            gszzlElem.className = "gszzl-value";
+            gszzlElem.classList.add(gszzl > 0 ? "rise" : gszzl < 0 ? "fall" : "flat");
+        }
+
+        function renderNav(data) {
+            const tbody = document.getElementById("navTableBody");
+            if (!data.Data || !data.Data.LSJZList || data.Data.LSJZList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan='3' style='color:#FF3B30;'>暂无净值数据</td></tr>`;
+                return;
+            }
+            const navList = data.Data.LSJZList;
+            let html = "";
+            navList.forEach(item => {
+                html += `<tr><td>${item.FSRQ || "未知日期"}</td><td>${item.DWJZ || "0.0000"}</td><td>${item.LJJZ || "0.0000"}</td></tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function startRefreshTimer() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            refreshTimer = setInterval(async () => {
+                if (!currentFundCode) return;
+                try {
+                    const res = await fetch(`http://fundgz.1234567.com.cn/js/${currentFundCode}.js`);
+                    const text = await res.text();
+                    const data = JSON.parse(text.lstrip("jsonpgz(").rstrip(");"));
+                    renderValuation(data);
+                } catch (e) { console.log("自动刷新失败：", e); }
+            }, 30000);
+        }
+
+        function toggleCollect() {
+            const btn = document.getElementById("collectBtn");
+            const fundName = document.getElementById("fundName").textContent;
+            const fund = { code: currentFundCode, name: fundName };
+            if (btn.classList.contains("active")) {
+                removeFromCollection(currentFundCode);
+                btn.classList.remove("active");
+                btn.innerHTML = `<i class="fas fa-heart"></i> 收藏`;
+                alert("已取消收藏");
+            } else {
+                addToCollection(fund);
+                btn.classList.add("active");
+                btn.innerHTML = `<i class="fas fa-heart"></i> 已收藏`;
+                alert("收藏成功");
+            }
+            loadCollectionList();
+        }
+
+        function addToCollection(fund) {
+            const collection = JSON.parse(localStorage.getItem("fundCollection")) || [];
+            if (!collection.some(item => item.code === fund.code)) {
+                collection.push(fund);
+                localStorage.setItem("fundCollection", JSON.stringify(collection));
+            }
+        }
+
+        function removeFromCollection(code) {
+            let collection = JSON.parse(localStorage.getItem("fundCollection")) || [];
+            collection = collection.filter(item => item.code !== code);
+            localStorage.setItem("fundCollection", JSON.stringify(collection));
+        }
+
+        function checkIsCollected(code) {
+            const collection = JSON.parse(localStorage.getItem("fundCollection")) || [];
+            const isCollected = collection.some(item => item.code === code);
+            const btn = document.getElementById("collectBtn");
+            isCollected ? (btn.classList.add("active"), btn.innerHTML = `<i class="fas fa-heart"></i> 已收藏`) : (btn.classList.remove("active"), btn.innerHTML = `<i class="fas fa-heart"></i> 收藏`);
+        }
+
+        function loadCollectionList() {
+            const collection = JSON.parse(localStorage.getItem("fundCollection")) || [];
+            const listElem = document.getElementById("collectionList");
+            if (collection.length === 0) {
+                listElem.innerHTML = "<div style='width:100%; text-align:center; padding:20px; color:#86868b;'>暂无收藏基金</div>";
+                return;
+            }
+            let html = "";
+            collection.forEach(fund => {
+                html += `<div class="collection-item" onclick="selectCollectedFund('${fund.code}')"><span>${fund.name}</span><span style="color:#86868b;">(${fund.code})</span><span class="delete-collect" onclick="event.stopPropagation(); deleteCollect('${fund.code}')"><i class="fas fa-times"></i></span></div>`;
+            });
+            listElem.innerHTML = html;
+        }
+
+        function selectCollectedFund(code) {
+            document.getElementById("fundCode").value = code;
+            queryFundData();
+            switchTab("query");
+        }
+
+        function deleteCollect(code) {
+            if (confirm("确定要取消收藏该基金吗？")) {
+                removeFromCollection(code);
+                loadCollectionList();
+                if (currentFundCode === code) {
+                    document.getElementById("collectBtn").classList.remove("active");
+                    document.getElementById("collectBtn").innerHTML = `<i class="fas fa-heart"></i> 收藏`;
+                }
+            }
+        }
+
+        function openImagePicker() {
+            document.getElementById("imageInput").click();
+        }
+
+        async function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            document.getElementById("loadingTip").style.display = "block";
+            selectedImportFunds = [];
+            try {
+                const result = await ocrEngine.recognize(file, 'chi_sim');
+                const text = result.data.text;
+                const fundPattern = r"([^\d\n]+?)\s*代码：?\s*(\d{6})|([^\d\n]+?)\s*(\d{6})";
+                const matches = text.matchAll(new RegExp(fundPattern, 'gms'));
+                const fundMap = new Map();
+                for (const match of matches) {
+                    let fundName = "", fundCode = "";
+                    if (match[2]) {
+                        fundName = match[1].replace(/\n/g, "").trim();
+                        fundCode = match[2].trim();
+                    } else {
+                        fundName = match[3].replace(/\n/g, "").trim();
+                        fundCode = match[4].trim();
+                    }
+                    if (fundName && fundCode && fundCode.length === 6) fundMap.set(fundCode, fundName);
+                }
+                selectedImportFunds = Array.from(fundMap).map(([code, name]) => ({ code, name }));
+                if (selectedImportFunds.length === 0) {
+                    alert("未识别到基金信息，请确保是支付宝基金持仓清晰截图！");
+                    return;
+                }
+                const listElem = document.getElementById("importFundList");
+                let html = "";
+                selectedImportFunds.forEach((fund, index) => {
+                    html += `<div class="import-fund-item"><div class="import-fund-info"><div class="import-fund-name">${fund.name}</div><div class="import-fund-code">${fund.code}</div></div><button class="import-select-btn" onclick="toggleImportSelect(${index})">选择</button></div>`;
+                });
+                listElem.innerHTML = html;
+                document.getElementById("importModal").style.display = "flex";
+            } catch (e) {
+                alert("截图识别失败，请确保图片清晰或重试！");
+                console.log("OCR识别失败：", e);
+            } finally {
+                document.getElementById("loadingTip").style.display = "none";
+                document.getElementById("imageInput").value = "";
+            }
+        }
+
+        function toggleImportSelect(index) {
+            const btn = document.querySelectorAll(".import-select-btn")[index];
+            if (btn.textContent === "选择") {
+                btn.textContent = "已选";
+                btn.style.backgroundColor = "#00C853";
+            } else {
+                btn.textContent = "选择";
+                btn.style.backgroundColor = "#007AFF";
+            }
+        }
+
+        function confirmImport() {
+            const selectedBtns = document.querySelectorAll(".import-select-btn");
+            const toImport = [];
+            selectedBtns.forEach((btn, index) => {
+                if (btn.textContent === "已选") toImport.push(selectedImportFunds[index]);
+            });
+            if (toImport.length === 0) {
+                alert("请选择要导入的基金！");
+                return;
+            }
+            toImport.forEach(fund => addToCollection(fund));
+            alert(`成功导入${toImport.length}只基金到收藏！`);
+            closeModal();
+            loadCollectionList();
+        }
+
+        function closeModal() {
+            document.getElementById("importModal").style.display = "none";
+            selectedImportFunds = [];
+        }
+
+        String.prototype.lstrip = function(prefix) {
+            return this.startsWith(prefix) ? this.slice(prefix.length) : this;
+        };
+        String.prototype.rstrip = function(suffix) {
+            return this.endsWith(suffix) ? this.slice(0, -suffix.length) : this;
+        };
+
+        window.onbeforeunload = function() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            ocrEngine.terminate();
+        };
+    </script>
+</body>
+</html>
